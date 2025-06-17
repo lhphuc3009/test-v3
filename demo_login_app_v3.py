@@ -19,7 +19,7 @@ authenticator = stauth.Authenticate(
     config["cookie"]["expiry_days"]
 )
 
-name, auth_status, username = authenticator.login("Login", "main")
+name, auth_status, username = authenticator.login(location="main", form_name="Đăng nhập")
 
 if auth_status is False:
     st.error("❌ Sai tài khoản hoặc mật khẩu.")
