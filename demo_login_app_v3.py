@@ -18,7 +18,7 @@ authenticator = stauth.Authenticate(
     hashed_passwords=True
 )
 
-name, auth_status, username = authenticator.login("Đăng nhập", "main")
+name, auth_status, username = authenticator.login("Login", "main")
 
 if auth_status:
     st.success(f"Chào mừng {name}!")
