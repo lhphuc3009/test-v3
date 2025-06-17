@@ -9,6 +9,3 @@ cookie:
   expiry_days: 7
   key: "abcdefghi1234567"
   name: "rma_login_session"
-preauthorized:
-  emails:
-    - phuc@networkhub.vn
