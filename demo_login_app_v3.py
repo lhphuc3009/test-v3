@@ -14,78 +14,6 @@ from openai import OpenAI
 from rma_ai import query_openai
 import rma_query_templates
 from rma_utils import clean_text, find_col, normalize_for_match, match_block, ensure_time_columns, extract_time_filter_from_question, filter_df_by_time
-import streamlit as st
-# ==== ĐĂNG NHẬP THỦ CÔNG ====
-import bcrypt
-import yaml
-from yaml.loader import SafeLoader
-
-with open("users.yaml", "r") as f:
-    users_config = yaml.load(f, Loader=SafeLoader)
-
-users = users_config["credentials"]["usernames"]
-
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.username = ""
-    st.session_state.role = ""
-
-if not st.session_state.logged_in:
-    with st.form("login_form"):
-        st.title("🔐 Đăng nhập hệ thống")
-        username = st.text_input("Tên đăng nhập")
-        password = st.text_input("Mật khẩu", type="password")
-        submitted = st.form_submit_button("Đăng nhập")
-
-        if submitted:
-            user = users.get(username)
-            if user:
-                hashed_pw = user["password"].encode("utf-8")
-                if bcrypt.checkpw(password.encode("utf-8"), hashed_pw):
-                    st.session_state.logged_in = True
-                    st.session_state.username = username
-                    st.session_state.role = user.get("role", "guest")
-                    st.experimental_rerun()
-                else:
-                    st.error("❌ Sai mật khẩu")
-            else:
-                st.error("❌ Không tồn tại tài khoản")
-    st.stop()
-
-st.sidebar.success(f"Xin chào {users[st.session_state.username]['name']} 👋")
-if st.sidebar.button("Đăng xuất"):
-    st.session_state.logged_in = False
-    st.session_state.username = ""
-    st.session_state.role = ""
-    st.experimental_rerun()
-
-is_admin = st.session_state.role == "admin"
-# ==== HẾT PHẦN LOGIN ====
-import os
-from dotenv import load_dotenv
-load_dotenv()
-import pandas as pd
-import os
-import unicodedata
-import re
-import io
-import json
-import requests
-import io
-from openai import OpenAI
-from rma_ai import query_openai
-import rma_query_templates
-from rma_utils import clean_text, find_col, normalize_for_match, match_block, ensure_time_columns, extract_time_filter_from_question, filter_df_by_time
-# Đọc ánh xạ tên cột từ file JSON
-def load_column_mapping(path="uploaded_files/column_mapping.json"):
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return {}
-
-COLUMN_MAPPING = load_column_mapping()
-
 st.set_page_config(page_title="Tra cứu RMA", layout="wide")
 st.title("🔎 Tra cứu dữ liệu bảo hành - sửa chữa")
 
@@ -842,3 +770,38 @@ elif selected_query == truyvan_options[19]:
 elif selected_query == truyvan_options[20]:
     title, df_out = rma_query_templates.query_21_technician_status_summary(data_filtered)
     show_table(title, df_out, highlight_cols=["Sửa xong", "Không sửa được", "Từ chối BH", "Tổng xử lý", "Tỷ lệ sửa thành công (%)"])
+
+# =========== BƯỚC 3: HỎI ĐÁP AI ===============
+    st.markdown("## 🤖 Hỏi dữ liệu bằng AI")
+    user_question = st.text_input("Bạn muốn hỏi gì về dữ liệu?", "")
+    if user_question:
+        with st.spinner("🤖 Đang suy nghĩ..."):
+            response = query_with_llm(user_question, data_filtered)
+        st.markdown("#### 🧠 Trả lời từ trợ lý ảo:")
+        st.write(response)
+
+# ========== TÌM KIẾM KHÁCH HÀNG / SẢN PHẨM ==========
+    st.subheader("🔍 Tìm kiếm Khách hàng hoặc Sản phẩm")
+    search_mode = st.radio("Chế độ tìm:", ["Khách hàng", "Sản phẩm"], horizontal=True)
+
+    if search_mode == "Khách hàng":
+        customer_col = find_col(data_filtered.columns, "tên khách hàng")
+        if customer_col:
+            all_customers = sorted(data_filtered[customer_col].dropna().unique())
+            selected_customer = st.selectbox("Chọn hoặc nhập tên khách hàng:", ["--"] + all_customers, key="select_customer")
+            if selected_customer != "--":
+                data_filtered = data_filtered[data_filtered[customer_col] == selected_customer]
+                st.success(f"🔍 Đã lọc {len(data_filtered)} dòng cho khách hàng '{selected_customer}'")
+                st.dataframe(data_filtered.head(30))
+
+    elif search_mode == "Sản phẩm":
+        product_col = find_col(data_filtered.columns, "sản phẩm")
+        if product_col:
+            all_products = sorted(data_filtered[product_col].dropna().unique())
+            selected_product = st.selectbox("Chọn hoặc nhập tên sản phẩm:", ["--"] + all_products, key="select_product")
+            if selected_product != "--":
+                data_filtered = data_filtered[data_filtered[product_col] == selected_product]
+                st.success(f"📦 Đã lọc {len(data_filtered)} dòng cho sản phẩm '{selected_product}'")
+                st.dataframe(data_filtered.head(30))
+
+
