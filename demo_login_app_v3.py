@@ -20,19 +20,19 @@ authenticator = stauth.Authenticate(
     config["cookie"]["expiry_days"]
 )
 
-# Gọi login() KHÔNG UNPACK, dùng đúng chuẩn mới
-authenticator.login()
+# Gọi login() — phiên bản mới trả về dict
+login_result = authenticator.login()
 
-if authenticator.authentication_status is False:
+if login_result["authentication_status"] is False:
     st.error("❌ Sai tài khoản hoặc mật khẩu.")
-elif authenticator.authentication_status is None:
+elif login_result["authentication_status"] is None:
     st.warning("⏳ Vui lòng đăng nhập để tiếp tục.")
-elif authenticator.authentication_status:
+elif login_result["authentication_status"] is True:
     authenticator.logout("Đăng xuất", "sidebar")
-    st.sidebar.success(f"Xin chào {authenticator.name} 👋")
+    st.sidebar.success(f"Xin chào {login_result['name']} 👋")
 
     # Phân quyền người dùng
-    role = config["credentials"]["usernames"].get(authenticator.username, {}).get("role", "guest")
+    role = config["credentials"]["usernames"].get(login_result["username"], {}).get("role", "guest")
     is_admin = role == "admin"
 
     # Giao diện chính
@@ -80,7 +80,7 @@ elif authenticator.authentication_status:
             else:
                 st.warning("Vui lòng nhập câu hỏi.")
 
-    # Chức năng cho quản trị viên
+    # Chức năng dành cho quản trị viên
     if is_admin:
         st.sidebar.markdown("---")
         st.sidebar.markdown("🔐 **Quản trị viên:**")
