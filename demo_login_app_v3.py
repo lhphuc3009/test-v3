@@ -12,7 +12,7 @@ import rma_utils
 with open("users.yaml") as file:
     config = yaml.load(file, Loader=SafeLoader)
 
-# Khởi tạo authenticator
+# Khởi tạo Authenticator
 authenticator = stauth.Authenticate(
     config["credentials"],
     config["cookie"]["name"],
@@ -20,9 +20,10 @@ authenticator = stauth.Authenticate(
     config["cookie"]["expiry_days"]
 )
 
-# Đăng nhập: trả về 3 giá trị
-name, authentication_status, username = authenticator.login("Login", location="main")
+# Sử dụng login() KHÔNG truyền tham số (chuẩn mới)
+name, authentication_status, username = authenticator.login()
 
+# Kiểm tra trạng thái đăng nhập
 if authentication_status is False:
     st.error("❌ Sai tài khoản hoặc mật khẩu.")
 elif authentication_status is None:
@@ -31,8 +32,8 @@ elif authentication_status:
     authenticator.logout("Đăng xuất", "sidebar")
     st.sidebar.success(f"Xin chào {name} 👋")
 
-    # Phân quyền
-    role = config["credentials"]["usernames"][username].get("role", "guest")
+    # Phân quyền người dùng
+    role = config["credentials"]["usernames"].get(username, {}).get("role", "guest")
     is_admin = role == "admin"
 
     # Giao diện chính
@@ -41,7 +42,7 @@ elif authentication_status:
     # Tải dữ liệu
     df = rma_utils.get_data_from_google_sheet()
 
-    # Bộ lọc
+    # Bộ lọc dữ liệu
     with st.sidebar:
         st.header("📅 Bộ lọc thời gian")
         year_options = st.multiselect("Chọn năm", df["year"].unique())
@@ -59,7 +60,7 @@ elif authentication_status:
         df = rma_utils.filter_data_by_column_values(df, "khách hàng", customer_filter)
         df = rma_utils.filter_data_by_column_values(df, "model", model_filter)
 
-    # Tabs lựa chọn
+    # Tabs chức năng
     tab = st.radio("Chọn chức năng", ["🔎 Truy vấn nhanh", "💬 Hỏi trợ lý AI"])
 
     if tab == "🔎 Truy vấn nhanh":
@@ -80,7 +81,7 @@ elif authentication_status:
             else:
                 st.warning("Vui lòng nhập câu hỏi.")
 
-    # Khu vực dành riêng cho admin
+    # Tuỳ chọn riêng cho quản trị viên
     if is_admin:
         st.sidebar.markdown("---")
         st.sidebar.markdown("🔐 **Quản trị viên:**")
