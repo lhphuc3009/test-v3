@@ -1,4 +1,3 @@
-
 import streamlit as st
 import streamlit_authenticator as stauth
 import yaml
@@ -13,10 +12,11 @@ authenticator = stauth.Authenticate(
     config['credentials'],
     config['cookie']['name'],
     config['cookie']['key'],
-    config['cookie']['expiry_days']
+    config['cookie']['expiry_days'],
+    hashed_passwords=True
 )
 
-name, authentication_status, username = authenticator.login("Login", "main")
+name, authentication_status, username = authenticator.login("Login", location="main")
 
 if authentication_status:
     st.success(f"Chào mừng {name}!")
