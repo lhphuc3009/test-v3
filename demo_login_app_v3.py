@@ -3,7 +3,7 @@ import streamlit as st
 import streamlit_authenticator as stauth
 import yaml
 from yaml.loader import SafeLoader
-st.write("Phiên bản:", streamlit_authenticator.__version__)
+st.write("Phiên bản:", stauth.__version__)
 st.set_page_config(page_title="Demo Login", page_icon="🔐")
 
 with open("auth_config.yaml") as file:
