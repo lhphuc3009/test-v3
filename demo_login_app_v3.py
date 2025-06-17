@@ -8,11 +8,11 @@ import rma_ai
 import rma_query_templates
 import rma_utils
 
-# Load cấu hình người dùng từ file YAML
+# Load dữ liệu người dùng từ file cấu hình
 with open("users.yaml") as file:
     config = yaml.load(file, Loader=SafeLoader)
 
-# Tạo đối tượng xác thực
+# Khởi tạo authenticator
 authenticator = stauth.Authenticate(
     config["credentials"],
     config["cookie"]["name"],
@@ -20,20 +20,19 @@ authenticator = stauth.Authenticate(
     config["cookie"]["expiry_days"]
 )
 
-# Hiển thị form đăng nhập
-authenticator.login()
+# Đăng nhập: trả về 3 giá trị
+name, authentication_status, username = authenticator.login("Login", location="main")
 
-if authenticator.authentication_status is False:
+if authentication_status is False:
     st.error("❌ Sai tài khoản hoặc mật khẩu.")
-elif authenticator.authentication_status is None:
-    st.warning("⏳ Vui lòng nhập thông tin để đăng nhập.")
-elif authenticator.authentication_status:
-    # Nếu đăng nhập thành công
+elif authentication_status is None:
+    st.warning("⏳ Vui lòng đăng nhập để tiếp tục.")
+elif authentication_status:
     authenticator.logout("Đăng xuất", "sidebar")
-    st.sidebar.success(f"Xin chào {authenticator.name} 👋")
+    st.sidebar.success(f"Xin chào {name} 👋")
 
-    # Lấy thông tin người dùng
-    role = config["credentials"]["usernames"][authenticator.username].get("role", "guest")
+    # Phân quyền
+    role = config["credentials"]["usernames"][username].get("role", "guest")
     is_admin = role == "admin"
 
     # Giao diện chính
@@ -81,7 +80,7 @@ elif authenticator.authentication_status:
             else:
                 st.warning("Vui lòng nhập câu hỏi.")
 
-    # Khu vực dành cho quản trị viên
+    # Khu vực dành riêng cho admin
     if is_admin:
         st.sidebar.markdown("---")
         st.sidebar.markdown("🔐 **Quản trị viên:**")
