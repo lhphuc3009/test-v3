@@ -1,0 +1,14 @@
+credentials:
+  usernames:
+    phuc:
+      email: phuc@networkhub.vn
+      name: Lê Hoàng Phúc
+      password: "$2b$12$D25R9UU6OmyfiDf7qCO6xeNOlfcjMYuEKuXClVIrCqaPpIeB.abke"
+      role: admin
+cookie:
+  expiry_days: 7
+  key: "abcdefghi1234567"
+  name: "rma_login_session"
+preauthorized:
+  emails:
+    - phuc@networkhub.vn
