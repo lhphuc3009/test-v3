@@ -14,6 +14,68 @@ from openai import OpenAI
 from rma_ai import query_openai
 import rma_query_templates
 from rma_utils import clean_text, find_col, normalize_for_match, match_block, ensure_time_columns, extract_time_filter_from_question, filter_df_by_time
+import streamlit as st
+# ==== ĐĂNG NHẬP THỦ CÔNG ====
+import bcrypt
+import yaml
+from yaml.loader import SafeLoader
+
+with open("users.yaml", "r") as f:
+    users_config = yaml.load(f, Loader=SafeLoader)
+
+users = users_config["credentials"]["usernames"]
+
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.username = ""
+    st.session_state.role = ""
+
+if not st.session_state.logged_in:
+    with st.form("login_form"):
+        st.title("🔐 Đăng nhập hệ thống")
+        username = st.text_input("Tên đăng nhập")
+        password = st.text_input("Mật khẩu", type="password")
+        submitted = st.form_submit_button("Đăng nhập")
+
+        if submitted:
+            user = users.get(username)
+            if user:
+                hashed_pw = user["password"].encode("utf-8")
+                if bcrypt.checkpw(password.encode("utf-8"), hashed_pw):
+                    st.session_state.logged_in = True
+                    st.session_state.username = username
+                    st.session_state.role = user.get("role", "guest")
+                    st.experimental_rerun()
+                else:
+                    st.error("❌ Sai mật khẩu")
+            else:
+                st.error("❌ Không tồn tại tài khoản")
+    st.stop()
+
+st.sidebar.success(f"Xin chào {users[st.session_state.username]['name']} 👋")
+if st.sidebar.button("Đăng xuất"):
+    st.session_state.logged_in = False
+    st.session_state.username = ""
+    st.session_state.role = ""
+    st.experimental_rerun()
+
+is_admin = st.session_state.role == "admin"
+# ==== HẾT PHẦN LOGIN ====
+import os
+from dotenv import load_dotenv
+load_dotenv()
+import pandas as pd
+import os
+import unicodedata
+import re
+import io
+import json
+import requests
+import io
+from openai import OpenAI
+from rma_ai import query_openai
+import rma_query_templates
+from rma_utils import clean_text, find_col, normalize_for_match, match_block, ensure_time_columns, extract_time_filter_from_question, filter_df_by_time
 # Đọc ánh xạ tên cột từ file JSON
 def load_column_mapping(path="uploaded_files/column_mapping.json"):
     try:
