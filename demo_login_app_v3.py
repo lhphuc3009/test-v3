@@ -4,13 +4,9 @@ import yaml
 from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
 
-from rma_ai import process_question
-from rma_query_templates import get_all_queries
-from rma_utils import (
-    get_data_from_google_sheet,
-    filter_data_by_date,
-    filter_data_by_column_values,
-)
+import rma_ai
+import rma_query_templates
+import rma_utils
 
 # Load dữ liệu người dùng từ file cấu hình
 with open("users.yaml") as file:
@@ -42,7 +38,7 @@ elif auth_status:
     st.title("🛠️ Trợ Lý Bảo Hành - Network Hub")
 
     # Tải dữ liệu
-    df = get_data_from_google_sheet()
+    df = rma_utils.get_data_from_google_sheet()
 
     # Bộ lọc
     with st.sidebar:
@@ -53,20 +49,20 @@ elif auth_status:
         from_date = st.date_input("Từ ngày")
         to_date = st.date_input("Đến ngày")
 
-        df = filter_data_by_date(df, year_options, month_options, quarter_options, from_date, to_date)
+        df = rma_utils.filter_data_by_date(df, year_options, month_options, quarter_options, from_date, to_date)
 
         st.header("🔍 Bộ lọc nâng cao")
         customer_filter = st.text_input("Lọc theo khách hàng")
         model_filter = st.text_input("Lọc theo model")
 
-        df = filter_data_by_column_values(df, "khách hàng", customer_filter)
-        df = filter_data_by_column_values(df, "model", model_filter)
+        df = rma_utils.filter_data_by_column_values(df, "khách hàng", customer_filter)
+        df = rma_utils.filter_data_by_column_values(df, "model", model_filter)
 
     # Tabs lựa chọn
     tab = st.radio("Chọn chức năng", ["🔎 Truy vấn nhanh", "💬 Hỏi trợ lý AI"])
 
     if tab == "🔎 Truy vấn nhanh":
-        query_list = get_all_queries()
+        query_list = rma_query_templates.get_all_queries()
         selected_query = st.selectbox("Chọn truy vấn", list(query_list.keys()))
         if st.button("Thực hiện"):
             result = query_list[selected_query](df)
@@ -77,7 +73,7 @@ elif auth_status:
         question = st.text_area("Nhập câu hỏi", placeholder="VD: Khách hàng A gửi nhiều sản phẩm nào nhất?")
         if st.button("Gửi"):
             if question.strip():
-                response = process_question(question, df)
+                response = rma_ai.process_question(question, df)
                 st.markdown("### 🤖 Trợ lý AI trả lời:")
                 st.write(response)
             else:
