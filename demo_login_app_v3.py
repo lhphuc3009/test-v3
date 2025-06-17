@@ -1,9 +1,9 @@
 
+import pkg_resources
 import streamlit as st
-import streamlit_authenticator as stauth
-import yaml
-from yaml.loader import SafeLoader
-st.write("Phiên bản:", stauth.__version__)
+
+version = pkg_resources.get_distribution("streamlit-authenticator").version
+st.write("Phiên bản streamlit-authenticator:", version)
 st.set_page_config(page_title="Demo Login", page_icon="🔐")
 
 with open("auth_config.yaml") as file:
