@@ -8,3 +8,4 @@ pyyaml
 bcrypt
 xlsxwriter
 plotly
+tabulate
