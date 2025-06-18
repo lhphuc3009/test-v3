@@ -2,25 +2,47 @@
 import pandas as pd
 from openai import OpenAI
 
+def chuan_hoa_ten_cot(df):
+    import unicodedata, re
+    def normalize(text):
+        text = unicodedata.normalize('NFD', text)
+        text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
+        text = re.sub(r"[^\w\s]", "", text)
+        text = text.lower().strip().replace(" ", "_")
+        return text
+    return df.rename(columns={col: normalize(col) for col in df.columns})
+
 def prepare_prompt(user_question, df_summary, matched_names=None):
-    """Tạo prompt gửi cho AI"""
+    if len(df_summary) > 100:
+        df_summary = df_summary.head(100)
+    df_summary = chuan_hoa_ten_cot(df_summary.copy())
+    if "ngay_nhan" in df_summary.columns:
+        df_summary["ngay_nhan"] = pd.to_datetime(df_summary["ngay_nhan"], errors="coerce")
+        df_summary["nam"] = df_summary["ngay_nhan"].dt.year
+        df_summary["thang"] = df_summary["ngay_nhan"].dt.month
+        df_summary["quy"] = df_summary["ngay_nhan"].dt.quarter
+
     csv_data = df_summary.to_csv(index=False)
     extra_info = ""
     if matched_names:
         extra_info = f"(Đã dò gần đúng tên khách hàng: {matched_names})\n"
-    prompt = f"""
-{extra_info}
-Bạn là trợ lý dữ liệu bảo hành, nhiệm vụ là đọc bảng dữ liệu nhỏ sau (dưới dạng csv) và trả lời câu hỏi bằng tiếng Việt ngắn gọn, dễ hiểu, có số liệu cụ thể.
-Dữ liệu bảng:
+    prompt = f"""{extra_info}
+Dưới đây là bảng dữ liệu bảo hành (dưới dạng csv). Hãy phân tích và trả lời câu hỏi bên dưới, có số liệu cụ thể, ngắn gọn và dễ hiểu.
+Dữ liệu:
 {csv_data}
+
 Câu hỏi: {user_question}
 """
     return prompt
 
-def query_openai(user_question, df_summary, api_key, model="gpt-4o", matched_names=None):
-    """Gửi câu hỏi + bảng dữ liệu nhỏ đến OpenAI, trả về câu trả lời"""
+def query_openai(user_question, df_summary, df_raw, api_key, model="gpt-3.5-turbo", matched_names=None):
     if df_summary.empty:
         return "Không có dữ liệu phù hợp để trả lời.", None
+
+    from intent_handler import handle_intent
+    df_result, intent_response = handle_intent(user_question, df_raw)
+    if 'Không xác định' not in intent_response:
+        return intent_response, None
 
     prompt = prepare_prompt(user_question, df_summary, matched_names)
 
@@ -28,7 +50,10 @@ def query_openai(user_question, df_summary, api_key, model="gpt-4o", matched_nam
         client = OpenAI(api_key=api_key)
         response = client.chat.completions.create(
             model=model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": "Bạn là một trợ lý dữ liệu chuyên về phân tích bảo hành RMA. Trả lời ngắn gọn, dễ hiểu, bằng tiếng Việt, có số liệu cụ thể."},
+                {"role": "user", "content": prompt}
+            ],
             temperature=0.2,
             max_tokens=500,
         )

@@ -6,6 +6,7 @@ import requests
 import io
 import plotly.express as px
 from rma_ai import query_openai
+from rma_ai import chuan_hoa_ten_cot
 from rma_utils import bo_loc_da_nang, ensure_time_columns, find_col
 import io
 def export_excel_button(df, filename="bao_cao_rma.xlsx", label="📥 Tải file Excel"):
@@ -27,7 +28,7 @@ import rma_query_templates
 load_dotenv()
 
 st.set_page_config(page_title="Trợ lý RMA AI", layout="wide")
-st.title("🧠 RMA – Phân Tích Dữ Liệu Bảo Hành")
+st.title("🧠 Trợ lý RMA – AI Phân Tích Dữ Liệu Bảo Hành")
 
 # === 1. Load dữ liệu từ Google Sheet ===
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fWFLZWyCAXn_B8jcZ0oY4KhJ8krbLPsH/export?format=csv"
@@ -44,6 +45,8 @@ def read_google_sheet(url):
     return pd.DataFrame()
 
 data = read_google_sheet(GOOGLE_SHEET_URL)
+df_raw = read_google_sheet(GOOGLE_SHEET_URL)
+df_raw = chuan_hoa_ten_cot(df_raw)
 
 if data.empty:
     st.stop()
@@ -143,6 +146,7 @@ with tab2:
         ai_response, prompt_used = query_openai(
             user_question=question,
             df_summary=df_ai,
+            df_raw=df_raw,
             api_key=api_key
         )
         st.markdown("### 📌 Kết quả:")
