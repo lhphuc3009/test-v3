@@ -7,6 +7,21 @@ import io
 import plotly.express as px
 from rma_ai import query_openai
 from rma_utils import bo_loc_da_nang, ensure_time_columns, find_col
+import io
+def export_excel_button(df, filename="bao_cao_rma.xlsx", label="📥 Tải file Excel"):
+    if df.empty:
+        return
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="RMA_Report")
+    buffer.seek(0)
+    st.download_button(
+        label=label,
+        data=buffer.getvalue(),
+        file_name=filename,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
 import rma_query_templates
 
 load_dotenv()
@@ -137,28 +152,22 @@ with tab2:
 with tab3:
     st.header("📋 Thống kê theo mẫu")
 
-    # === Bộ lọc khoảng ngày tiếp nhận ===
-    from datetime import datetime
-
+    # Bộ lọc khoảng thời gian
     col_date = find_col(data.columns, "ngày tiếp nhận")
     if col_date:
         data[col_date] = pd.to_datetime(data[col_date], errors='coerce')
         min_date = data[col_date].min()
         max_date = data[col_date].max()
-
         ngay_bat_dau, ngay_ket_thuc = st.date_input(
             "📅 Chọn khoảng ngày tiếp nhận:",
             value=(min_date, max_date),
             min_value=min_date,
             max_value=max_date
         )
+        data = data[(data[col_date] >= pd.to_datetime(ngay_bat_dau)) &
+                    (data[col_date] <= pd.to_datetime(ngay_ket_thuc))]
 
-        data = data[
-            (data[col_date] >= pd.to_datetime(ngay_bat_dau)) &
-            (data[col_date] <= pd.to_datetime(ngay_ket_thuc))
-        ]
-
-    # === Bộ lọc nhóm hàng ===
+    # Bộ lọc nhóm hàng
     col_nhom = find_col(data.columns, "nhóm hàng")
     if col_nhom:
         nhom_list = data[col_nhom].dropna().unique().tolist()
@@ -166,7 +175,7 @@ with tab3:
         if selected_nhoms:
             data = data[data[col_nhom].isin(selected_nhoms)]
 
-    # === Các loại thống kê ===
+    # Danh sách truy vấn
     options = [
         "Tổng số sản phẩm tiếp nhận theo tháng/năm/quý",
         "Tỷ lệ sửa chữa thành công theo tháng/năm/quý",
@@ -177,7 +186,8 @@ with tab3:
         "Thời gian xử lý trung bình",
         "Top sản phẩm gửi nhiều trong nhóm đã chọn",
         "Thời gian xử lý trung bình theo khách hàng",
-        "Serial bị gửi nhiều lần"
+        "Serial bị gửi nhiều lần",
+        "Hiệu suất sửa chữa theo kỹ thuật viên"
     ]
 
     selected = st.selectbox("Chọn loại thống kê:", options)
@@ -187,57 +197,54 @@ with tab3:
         title, df_out = rma_query_templates.query_1_total_by_group(data, group_by)
         st.subheader(title)
         st.dataframe(df_out)
+        export_excel_button(df_out, filename="tong_so_tiep_nhan.xlsx")
 
     elif selected == options[1]:
         group_by = st.selectbox("Nhóm theo:", ["Năm", "Tháng", "Quý"])
         title, df_out = rma_query_templates.query_2_success_rate_by_group(data, group_by)
         st.subheader(title)
         st.dataframe(df_out)
+        export_excel_button(df_out, filename="ti_le_sua_chua.xlsx")
 
     elif selected == options[2]:
         title, df_out = rma_query_templates.query_3_unrepaired_products(data)
         st.subheader(title)
         st.dataframe(df_out)
+        export_excel_button(df_out, filename="chua_sua_xong.xlsx")
 
     elif selected == options[3]:
         title, df_out = rma_query_templates.query_4_top_customers(data)
         st.subheader(title)
         st.dataframe(df_out)
+        export_excel_button(df_out, filename="top_khach_hang.xlsx")
 
     elif selected == options[4]:
         title, df_out = rma_query_templates.query_7_top_products(data)
         st.subheader(title)
         st.dataframe(df_out)
+        export_excel_button(df_out, filename="top_san_pham.xlsx")
 
     elif selected == options[5]:
         title, df_out = rma_query_templates.query_top_errors(data)
         st.subheader(title)
-
-        fig = px.bar(
-            df_out,
-            x="Lỗi",
-            y="Số lần gặp",
-            title="Biểu đồ lỗi kỹ thuật phổ biến",
-            text_auto=True,
-            template="plotly_dark"
-        )
-        fig.update_layout(
-            xaxis_tickangle=-45,
-            height=500,
-            margin=dict(l=30, r=30, t=60, b=150)
-        )
+        fig = px.bar(df_out, x="Lỗi", y="Số lần gặp", title="Biểu đồ lỗi kỹ thuật phổ biến",
+                     text_auto=True, template="plotly_dark")
+        fig.update_layout(xaxis_tickangle=-45, height=500, margin=dict(l=30, r=30, t=60, b=150))
         st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(df_out, use_container_width=True)
+        st.dataframe(df_out)
+        export_excel_button(df_out, filename="top_loi_pop.xlsx")
 
     elif selected == options[6]:
         title, df_out = rma_query_templates.query_avg_processing_time(data)
         st.subheader(title)
         st.dataframe(df_out)
+        export_excel_button(df_out, filename="thoi_gian_xu_ly_tb.xlsx")
 
     elif selected == options[7]:
         title, df_out = rma_query_templates.query_top_products_in_group(data)
         st.subheader(title)
         st.dataframe(df_out)
+        export_excel_button(df_out, filename="top_san_pham_nhom.xlsx")
 
     elif selected == options[8]:
         col_khach = find_col(data.columns, "tên khách hàng")
@@ -246,12 +253,19 @@ with tab3:
             selected_khach = st.selectbox("🔍 Chọn khách hàng cần xem:", unique_khach)
         else:
             selected_khach = None
-
         title, df_out = rma_query_templates.query_avg_time_by_customer(data, selected_khach)
         st.subheader(title)
-        st.dataframe(df_out, use_container_width=True)
+        st.dataframe(df_out)
+        export_excel_button(df_out, filename="tg_xu_ly_theo_khach.xlsx")
 
     elif selected == options[9]:
         title, df_out = rma_query_templates.query_serial_lap_lai(data)
         st.subheader(title)
         st.dataframe(df_out)
+        export_excel_button(df_out, filename="serial_lap_lai.xlsx")
+
+    elif selected == options[10]:
+        title, df_out = rma_query_templates.query_21_technician_status_summary(data)
+        st.subheader(title)
+        st.dataframe(df_out)
+        export_excel_button(df_out, filename="hieu_suat_ktv.xlsx")
