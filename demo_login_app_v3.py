@@ -41,6 +41,7 @@ with tab1:
     st.header("📊 Bảng dữ liệu và bộ lọc")
     data_filtered = bo_loc_da_nang(data)
 
+    # === TÌM KIẾM NHANH ===
     with st.expander("🔍 Tìm kiếm nhanh"):
         search_mode = st.radio("Chọn loại tìm kiếm:", ["🔎 Theo khách hàng", "🔎 Theo sản phẩm", "🔎 Theo số serial"], horizontal=True)
         keyword = st.text_input("Nhập từ khóa cần tìm:")
@@ -59,10 +60,10 @@ with tab1:
                 suggestions = [s for s in all_values if keyword.lower() in s.lower()]
                 if suggestions:
                     st.markdown('<div style="font-size: 0.85rem; color: #aaa;"><b>🔎 Gợi ý khớp:</b></div>', unsafe_allow_html=True)
-                    for s in suggestions[:5]:
+                    for s in suggestions[:3]:
                         st.markdown(f'<div style="font-size: 0.85rem; color: #ccc;">• {s}</div>', unsafe_allow_html=True)
 
-        # LỌC DỮ LIỆU
+        # LỌC DỮ LIỆU THEO TỪ KHÓA
         if keyword:
             keyword_lower = keyword.lower()
             if search_mode == "🔎 Theo khách hàng":
@@ -79,18 +80,33 @@ with tab1:
             else:
                 st.warning("Không tìm thấy cột phù hợp để tìm kiếm.")
 
-    # KẾT QUẢ VÀ XUẤT FILE
-    if keyword:
+    # === LỌC THEO LOẠI DỊCH VỤ ===
+    with st.expander("📌 Lọc theo loại dịch vụ"):
+        col_dichvu = find_col(data_filtered.columns, "loại dịch vụ")
+        if col_dichvu:
+            unique_types = data_filtered[col_dichvu].dropna().unique().tolist()
+            selected_types = st.multiselect("Chọn loại dịch vụ:", unique_types)
+            if selected_types:
+                data_filtered = data_filtered[data_filtered[col_dichvu].isin(selected_types)]
+
+    # === LỌC THEO LỖI KỸ THUẬT ===
+    with st.expander("📌 Lọc theo lỗi kỹ thuật"):
+        col_loi = find_col(data_filtered.columns, "tên lỗi (báo lỗi)")
+        if col_loi:
+            unique_errors = data_filtered[col_loi].dropna().unique().tolist()
+            selected_errors = st.multiselect("Chọn lỗi cần lọc:", unique_errors)
+            if selected_errors:
+                data_filtered = data_filtered[data_filtered[col_loi].isin(selected_errors)]
+
+    # === HIỂN THỊ KẾT QUẢ & TẢI FILE ===
+    if keyword or selected_types or selected_errors:
         st.markdown(f"**Số dòng sau khi lọc:** {len(data_filtered)} / {len(data)}")
         st.dataframe(data_filtered, use_container_width=True)
 
-        # Nút tải kết quả Excel
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
             data_filtered.to_excel(writer, index=False, sheet_name="RMA_Loc")
-            
         buffer.seek(0)
-        
         st.download_button(
             label="📥 Tải kết quả Excel",
             data=buffer.getvalue(),
