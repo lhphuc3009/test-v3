@@ -202,7 +202,7 @@ def query_19_top_technicians(df, top_n=5):
     return f"Top kỹ thuật viên xử lý nhiều sản phẩm nhất", pd.DataFrame({"Kỹ thuật viên": top_ktv.index, "Số lượng": top_ktv.values})
 
 def query_20_success_rate_by_technician_and_group(df, group_by):
-    tech_col = find_col(df.columns, "kỹ thuật viên")
+    tech_col = find_col(df.columns, "ktv")
     ok_col = find_col(df.columns, "đã sửa xong")
     fail_col = find_col(df.columns, "không sửa được")
     tcbh_col = find_col(df.columns, "từ chối bảo hành")
@@ -221,26 +221,34 @@ def query_20_success_rate_by_technician_and_group(df, group_by):
     return f"Tỷ lệ sửa thành công của kỹ thuật viên theo {group_by.lower()}", g[[group_by, tech_col, "ok", "fail", "tcbh", "Tỷ lệ sửa thành công (%)"]]
 
 def query_21_technician_status_summary(df):
-    tech_col = find_col(df.columns, "kỹ thuật viên")
+    tech_col = find_col(df.columns, "ktv")
     ok_col = find_col(df.columns, "đã sửa xong")
     fail_col = find_col(df.columns, "không sửa được")
     tcbh_col = find_col(df.columns, "từ chối bảo hành")
+
     if not all([tech_col, ok_col, fail_col, tcbh_col]):
         return "Thiếu cột kỹ thuật viên hoặc trạng thái!", pd.DataFrame()
-    g = df.groupby(tech_col).agg(
-        ok=(ok_col, lambda x: (x == 1).sum()),
-        fail=(fail_col, lambda x: (x == 1).sum()),
-        tcbh=(tcbh_col, lambda x: (x == 1).sum()),
-    ).reset_index()
-    g["Tổng xử lý"] = g["ok"] + g["fail"] + g["tcbh"]
-    g["Tỷ lệ sửa thành công (%)"] = g.apply(
-        lambda row: round(row["ok"] / row["Tổng xử lý"] * 100, 2) if row["Tổng xử lý"] > 0 else 0, axis=1
+
+    g = df.groupby(tech_col).agg({
+        ok_col:   lambda x: (x == 1).sum(),
+        fail_col: lambda x: (x == 1).sum(),
+        tcbh_col: lambda x: (x == 1).sum()
+    }).reset_index()
+
+    g["Tổng sản phẩm"] = g[ok_col] + g[fail_col] + g[tcbh_col]
+    g["Tỷ lệ thành công (%)"] = g.apply(
+        lambda row: round(row[ok_col] / row["Tổng sản phẩm"] * 100, 1)
+        if row["Tổng sản phẩm"] > 0 else 0,
+        axis=1
     )
-    g = g.rename(columns={
-        "ok": "Sửa xong",
-        "fail": "Không sửa được",
-        "tcbh": "Từ chối BH"
-    })
+
+    g.rename(columns={
+        tech_col: "Kỹ thuật viên",
+        ok_col: "Đã sửa xong",
+        fail_col: "Không sửa được",
+        tcbh_col: "Từ chối bảo hành"
+    }, inplace=True)
+
     return "Thống kê số lượng sản phẩm mỗi kỹ thuật viên đã xử lý", g
 
 def query_top_errors(data, top_n=10):
@@ -316,3 +324,4 @@ def query_serial_lap_lai(data):
 
     df_serial_info = pd.merge(serial_lap, data, left_on="Serial", right_on=col_serial, how="left")
     return "Danh sách serial bị lặp lại (gửi nhiều hơn 1 lần)", df_serial_info
+
