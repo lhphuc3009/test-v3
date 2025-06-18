@@ -1,5 +1,90 @@
 
 import pandas as pd
+
+COLUMN_MAPPING = {
+    "Tên khách hàng": [
+        "khach hang",
+        "ten khach",
+        "ten kh",
+        "cty",
+        "cong ty",
+        "ten cong ty"
+    ],
+    "Sản phẩm": [
+        "san pham",
+        "ma san pham",
+        "ma hang",
+        "product",
+        "ten sp"
+    ],
+    "Nhóm hàng": [
+        "nhom hang",
+        "loai hang",
+        "danh muc",
+        "category"
+    ],
+    "Kỹ thuật viên": [
+        "ky thuat vien",
+        "ktv",
+        "nhan vien sua",
+        "nguoi sua",
+        "sua chua"
+    ],
+    "Đã sửa xong": [
+        "da sua",
+        "da sua xong",
+        "hoan tat",
+        "xong",
+        "done",
+        "fix ok"
+    ],
+    "Không sửa được": [
+        "khong sua",
+        "khong sua duoc",
+        "that bai",
+        "fail",
+        "khong thanh cong"
+    ],
+    "Từ chối bảo hành": [
+        "tu choi",
+        "khong bh",
+        "tu choi bh",
+        "bao hanh tu choi"
+    ],
+    "Tên lỗi": [
+        "ten loi",
+        "loi",
+        "mo ta loi",
+        "loi ky thuat",
+        "error"
+    ],
+    "Ngày tiếp nhận": [
+        "ngay nhan",
+        "ngay tiep nhan",
+        "thoi gian nhan",
+        "ngay bao hanh",
+        "ngay gui"
+    ],
+    "Năm": [
+        "nam",
+        "year"
+    ],
+    "Tháng": [
+        "thang",
+        "month"
+    ],
+    "Quý": [
+        "quy",
+        "quarter"
+    ],
+    "Nguồn file": [
+        "nguon file",
+        "file name",
+        "ten file",
+        "nguon"
+    ]
+}
+
 import unicodedata
 import re
 
@@ -97,3 +182,36 @@ def filter_df_by_time(df, years=None, months=None, quarters=None):
     if quarters and "Quý" in df2.columns:
         df2 = df2[df2["Quý"].isin(quarters)]
     return df2
+import streamlit as st
+
+def bo_loc_da_nang(df):
+    df_filtered = df.copy()
+    
+    with st.sidebar.expander("🧰 Bộ lọc nâng cao", expanded=True):
+        col1, col2 = st.columns(2)
+        years = sorted(df["Năm"].dropna().unique())
+        months = sorted(df["Tháng"].dropna().unique())
+        selected_years = col1.multiselect("Năm", years)
+        selected_months = col2.multiselect("Tháng", months)
+
+        col3, col4 = st.columns(2)
+        quarters = sorted(df["Quý"].dropna().unique())
+        selected_quarters = col3.multiselect("Quý", quarters)
+        date_range = col4.date_input("Ngày tiếp nhận (Từ – Đến)", [])
+
+        if selected_years:
+            df_filtered = df_filtered[df_filtered["Năm"].isin(selected_years)]
+        if selected_months:
+            df_filtered = df_filtered[df_filtered["Tháng"].isin(selected_months)]
+        if selected_quarters:
+            df_filtered = df_filtered[df_filtered["Quý"].isin(selected_quarters)]
+        if isinstance(date_range, list) and len(date_range) == 2:
+            col_date = find_col(df.columns, "ngày tiếp nhận")
+            if col_date:
+                df_filtered = df_filtered[
+                    (df_filtered[col_date] >= pd.to_datetime(date_range[0])) &
+                    (df_filtered[col_date] <= pd.to_datetime(date_range[1]))
+                ]
+
+    return df_filtered
+
