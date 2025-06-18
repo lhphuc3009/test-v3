@@ -136,34 +136,80 @@ with tab2:
 # === TAB 3: Truy vấn thống kê nhanh ===
 with tab3:
     st.header("📋 Thống kê theo mẫu")
+    
+    # Bộ lọc nhóm hàng
+    col_nhom = find_col(data.columns, "nhóm hàng")
+    if col_nhom:
+        nhom_list = data[col_nhom].dropna().unique().tolist()
+        selected_nhoms = st.multiselect("📦 Chọn nhóm hàng cần phân tích:", nhom_list)
+        if selected_nhoms:
+            data = data[data[col_nhom].isin(selected_nhoms)]
+
     options = [
         "Tổng số sản phẩm tiếp nhận theo tháng/năm/quý",
         "Tỷ lệ sửa chữa thành công theo tháng/năm/quý",
         "Danh sách sản phẩm chưa sửa xong",
         "Top 5 khách hàng gửi nhiều nhất",
-        "Top 5 sản phẩm bảo hành nhiều nhất"
+        "Top 5 sản phẩm bảo hành nhiều nhất",
+        "Top lỗi phổ biến theo nhóm hàng",
+        "Thời gian xử lý trung bình",
+        "Top sản phẩm gửi nhiều trong nhóm đã chọn",
+        "Thời gian xử lý trung bình theo khách hàng"
     ]
+
     selected = st.selectbox("Chọn loại thống kê:", options)
 
     if selected == options[0]:
         group_by = st.selectbox("Nhóm theo:", ["Năm", "Tháng", "Quý"])
-        title, df_out = rma_query_templates.query_1_total_by_group(data_filtered, group_by)
+        title, df_out = rma_query_templates.query_1_total_by_group(data, group_by)
         st.subheader(title)
         st.dataframe(df_out)
+
     elif selected == options[1]:
         group_by = st.selectbox("Nhóm theo:", ["Năm", "Tháng", "Quý"])
-        title, df_out = rma_query_templates.query_2_success_rate_by_group(data_filtered, group_by)
+        title, df_out = rma_query_templates.query_2_success_rate_by_group(data, group_by)
         st.subheader(title)
         st.dataframe(df_out)
+
     elif selected == options[2]:
-        title, df_out = rma_query_templates.query_3_unrepaired_products(data_filtered)
+        title, df_out = rma_query_templates.query_3_unrepaired_products(data)
         st.subheader(title)
         st.dataframe(df_out)
+
     elif selected == options[3]:
-        title, df_out = rma_query_templates.query_4_top_customers(data_filtered)
+        title, df_out = rma_query_templates.query_4_top_customers(data)
         st.subheader(title)
         st.dataframe(df_out)
+
     elif selected == options[4]:
-        title, df_out = rma_query_templates.query_7_top_products(data_filtered)
+        title, df_out = rma_query_templates.query_7_top_products(data)
         st.subheader(title)
         st.dataframe(df_out)
+
+    elif selected == options[5]:
+        title, df_out = rma_query_templates.query_top_errors(data)
+        st.subheader(title)
+        st.dataframe(df_out)
+
+    elif selected == options[6]:
+        title, df_out = rma_query_templates.query_avg_processing_time(data)
+        st.subheader(title)
+        st.dataframe(df_out)
+
+    elif selected == options[7]:
+        title, df_out = rma_query_templates.query_top_products_in_group(data)
+        st.subheader(title)
+        st.dataframe(df_out)
+    
+    elif selected == options[8]:
+        col_khach = find_col(data.columns, "tên khách hàng")
+        if col_khach:
+            unique_khach = data[col_khach].dropna().unique().tolist()
+            selected_khach = st.selectbox("🔍 Chọn khách hàng cần xem:", unique_khach)
+        else:
+            selected_khach = None
+
+        title, df_out = rma_query_templates.query_avg_time_by_customer(data, selected_khach)
+        st.subheader(title)
+        st.dataframe(df_out, use_container_width=True)
+
