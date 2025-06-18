@@ -304,3 +304,15 @@ def query_avg_time_by_customer(data, selected_khach=None):
     avg_df = avg_df.sort_values(by="Thời gian xử lý trung bình (ngày)", ascending=False)
 
     return f"⏱️ Thời gian xử lý trung bình theo khách", avg_df
+
+def query_serial_lap_lai(data):
+    col_serial = find_col(data.columns, "serial")
+    if not col_serial:
+        return "Không tìm thấy cột serial", pd.DataFrame()
+
+    serial_counts = data[col_serial].value_counts().reset_index()
+    serial_counts.columns = ["Serial", "Số lần gặp"]
+    serial_lap = serial_counts[serial_counts["Số lần gặp"] > 1]
+
+    df_serial_info = pd.merge(serial_lap, data, left_on="Serial", right_on=col_serial, how="left")
+    return "Danh sách serial bị lặp lại (gửi nhiều hơn 1 lần)", df_serial_info
