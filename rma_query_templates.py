@@ -1,4 +1,3 @@
-
 import pandas as pd
 from rma_utils import find_col
 
@@ -243,3 +242,65 @@ def query_21_technician_status_summary(df):
         "tcbh": "Từ chối BH"
     })
     return "Thống kê số lượng sản phẩm mỗi kỹ thuật viên đã xử lý", g
+
+def query_top_errors(data, top_n=10):
+    col_error = find_col(data.columns, "tên lỗi (báo lỗi)")
+    if col_error:
+        df = data[col_error].dropna().value_counts().reset_index()
+        df.columns = ["Lỗi", "Số lần gặp"]
+        return f"Top {top_n} lỗi kỹ thuật phổ biến", df.head(top_n)
+    else:
+        return "Không tìm thấy cột lỗi", pd.DataFrame()
+
+
+def query_avg_processing_time(data):
+    col_nhan = find_col(data.columns, "ngay tiep nhan")
+    col_tra = find_col(data.columns, "ngay tra khach")
+    
+    if not col_nhan or not col_tra:
+        return "Thiếu cột 'ngay tiep nhan' hoặc 'ngay tra khach'", pd.DataFrame()
+
+    df = data.dropna(subset=[col_nhan, col_tra]).copy()
+
+    # Ép kiểu datetime để đảm bảo tính toán không lỗi
+    df[col_nhan] = pd.to_datetime(df[col_nhan], errors='coerce')
+    df[col_tra] = pd.to_datetime(df[col_tra], errors='coerce')
+
+    df["số ngày xử lý"] = (df[col_tra] - df[col_nhan]).dt.days
+    avg_days = df["số ngày xử lý"].mean()
+    
+    return "⏱️ Thời gian xử lý trung bình (ngày)", pd.DataFrame({"Trung bình (ngày)": [round(avg_days, 2)]})
+
+    
+def query_top_products_in_group(data, top_n=10):
+    col_product = find_col(data.columns, "sản phẩm")
+    if col_product:
+        df = data[col_product].dropna().value_counts().reset_index()
+        df.columns = ["Tên sản phẩm", "Số lượt gửi"]
+        return f"Top {top_n} sản phẩm có lượt gửi nhiều nhất trong nhóm đã chọn", df.head(top_n)
+    else:
+        return "Không tìm thấy cột sản phẩm", pd.DataFrame()
+
+def query_avg_time_by_customer(data, selected_khach=None):
+    col_nhan = find_col(data.columns, "ngay tiep nhan")
+    col_tra = find_col(data.columns, "ngay tra khach")
+    col_khach = find_col(data.columns, "tên khách hàng")
+
+    if not col_nhan or not col_tra or not col_khach:
+        return "Thiếu cột cần thiết", pd.DataFrame()
+
+    df = data.dropna(subset=[col_nhan, col_tra, col_khach]).copy()
+    df[col_nhan] = pd.to_datetime(df[col_nhan], errors='coerce')
+    df[col_tra] = pd.to_datetime(df[col_tra], errors='coerce')
+
+    df["số ngày xử lý"] = (df[col_tra] - df[col_nhan]).dt.days
+
+    # Nếu chọn khách hàng cụ thể → lọc trước
+    if selected_khach:
+        df = df[df[col_khach] == selected_khach]
+
+    avg_df = df.groupby(col_khach)["số ngày xử lý"].mean().reset_index()
+    avg_df.columns = ["Khách hàng", "Thời gian xử lý trung bình (ngày)"]
+    avg_df = avg_df.sort_values(by="Thời gian xử lý trung bình (ngày)", ascending=False)
+
+    return f"⏱️ Thời gian xử lý trung bình theo khách", avg_df
