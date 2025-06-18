@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 import requests
 import io
-
+import plotly.express as px
 from rma_ai import query_openai
 from rma_utils import bo_loc_da_nang, ensure_time_columns, find_col
 import rma_query_templates
@@ -136,8 +136,29 @@ with tab2:
 # === TAB 3: Truy vấn thống kê nhanh ===
 with tab3:
     st.header("📋 Thống kê theo mẫu")
-    
-    # Bộ lọc nhóm hàng
+
+    # === Bộ lọc khoảng ngày tiếp nhận ===
+    from datetime import datetime
+
+    col_date = find_col(data.columns, "ngày tiếp nhận")
+    if col_date:
+        data[col_date] = pd.to_datetime(data[col_date], errors='coerce')
+        min_date = data[col_date].min()
+        max_date = data[col_date].max()
+
+        ngay_bat_dau, ngay_ket_thuc = st.date_input(
+            "📅 Chọn khoảng ngày tiếp nhận:",
+            value=(min_date, max_date),
+            min_value=min_date,
+            max_value=max_date
+        )
+
+        data = data[
+            (data[col_date] >= pd.to_datetime(ngay_bat_dau)) &
+            (data[col_date] <= pd.to_datetime(ngay_ket_thuc))
+        ]
+
+    # === Bộ lọc nhóm hàng ===
     col_nhom = find_col(data.columns, "nhóm hàng")
     if col_nhom:
         nhom_list = data[col_nhom].dropna().unique().tolist()
@@ -145,6 +166,7 @@ with tab3:
         if selected_nhoms:
             data = data[data[col_nhom].isin(selected_nhoms)]
 
+    # === Các loại thống kê ===
     options = [
         "Tổng số sản phẩm tiếp nhận theo tháng/năm/quý",
         "Tỷ lệ sửa chữa thành công theo tháng/năm/quý",
@@ -154,7 +176,8 @@ with tab3:
         "Top lỗi phổ biến theo nhóm hàng",
         "Thời gian xử lý trung bình",
         "Top sản phẩm gửi nhiều trong nhóm đã chọn",
-        "Thời gian xử lý trung bình theo khách hàng"
+        "Thời gian xử lý trung bình theo khách hàng",
+        "Serial bị gửi nhiều lần"
     ]
 
     selected = st.selectbox("Chọn loại thống kê:", options)
@@ -189,7 +212,22 @@ with tab3:
     elif selected == options[5]:
         title, df_out = rma_query_templates.query_top_errors(data)
         st.subheader(title)
-        st.dataframe(df_out)
+
+        fig = px.bar(
+            df_out,
+            x="Lỗi",
+            y="Số lần gặp",
+            title="Biểu đồ lỗi kỹ thuật phổ biến",
+            text_auto=True,
+            template="plotly_dark"
+        )
+        fig.update_layout(
+            xaxis_tickangle=-45,
+            height=500,
+            margin=dict(l=30, r=30, t=60, b=150)
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        st.dataframe(df_out, use_container_width=True)
 
     elif selected == options[6]:
         title, df_out = rma_query_templates.query_avg_processing_time(data)
@@ -200,7 +238,7 @@ with tab3:
         title, df_out = rma_query_templates.query_top_products_in_group(data)
         st.subheader(title)
         st.dataframe(df_out)
-    
+
     elif selected == options[8]:
         col_khach = find_col(data.columns, "tên khách hàng")
         if col_khach:
@@ -213,3 +251,7 @@ with tab3:
         st.subheader(title)
         st.dataframe(df_out, use_container_width=True)
 
+    elif selected == options[9]:
+        title, df_out = rma_query_templates.query_serial_lap_lai(data)
+        st.subheader(title)
+        st.dataframe(df_out)
