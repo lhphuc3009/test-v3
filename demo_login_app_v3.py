@@ -28,7 +28,7 @@ import rma_query_templates
 load_dotenv()
 
 st.set_page_config(page_title="Trợ lý RMA AI", layout="wide")
-st.title("🧠 Trợ lý RMA – AI Phân Tích Dữ Liệu Bảo Hành")
+st.title("🧠 RMA – Dữ Liệu Bảo Hành")
 
 # === 1. Load dữ liệu từ Google Sheet ===
 GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1fWFLZWyCAXn_B8jcZ0oY4KhJ8krbLPsH/export?format=csv"
