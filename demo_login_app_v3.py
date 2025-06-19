@@ -108,11 +108,11 @@ with tab1:
                 data_filtered = data_filtered[data_filtered[col_dichvu].isin(selected_types)]
 
     # === LỌC THEO LỖI KỸ THUẬT ===
-    with st.expander("📌 Lọc theo lỗi kỹ thuật"):
-        col_loi = find_col(data_filtered.columns, "tên lỗi (báo lỗi)")
+    with st.expander("📌 Lọc theo kỹ thuật viên"):
+        col_loi = find_col(data_filtered.columns, "KTV")
         if col_loi:
             unique_errors = data_filtered[col_loi].dropna().unique().tolist()
-            selected_errors = st.multiselect("Chọn lỗi cần lọc:", unique_errors)
+            selected_errors = st.multiselect("Chọn KTV cần lọc:", unique_errors)
             if selected_errors:
                 data_filtered = data_filtered[data_filtered[col_loi].isin(selected_errors)]
 
