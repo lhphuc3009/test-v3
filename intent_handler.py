@@ -1,13 +1,12 @@
+import re
+import pandas as pd
+
 def normalize_text(text):
     text = text.lower()
     text = text.replace("gởi", "gửi")
     text = text.replace("bảo hành", "gửi")
     text = text.replace("nhận", "gửi")
     return text
-
-
-import re
-import pandas as pd
 
 def extract_time_from_question(question):
     month_match = re.search(r"tháng\s*(\d{1,2})", question, re.IGNORECASE)
@@ -21,9 +20,12 @@ def extract_time_from_question(question):
     return year, month, quarter
 
 def extract_customer_from_question(question):
-    match = re.search(r"khách hàng ([\w\s\-\.]+?) gửi", question, re.IGNORECASE)
+    q = normalize_text(question)
+    if "ktv" in q or "kỹ thuật viên" in q:
+        return None
+    match = re.search(r"khách hàng ([\w\s\-\.]+?) gửi", q)
     if not match:
-        match = re.search(r"([\w\s\-\.]+?) gửi", question, re.IGNORECASE)
+        match = re.search(r"([\w\s\-\.]+?) gửi", q)
     return match.group(1).strip() if match else None
 
 def extract_product_from_question(question):
@@ -34,12 +36,18 @@ def extract_product_from_question(question):
 
 def recognize_intent(question):
     q = normalize_text(question)
+    if re.search(r"sản phẩm (gì|nào)? ?nhiều nhất", q):
+        return {"intent": "top_product", "params": {"question": question}}
+    if re.search(r"sản phẩm (gì|nào).*nhiều", q):
+        return {"intent": "top_products", "params": {"question": question}}
     if "khách" in q and "gửi nhiều" in q:
-        return {"intent": "top_customer", "params": {}}
+        return {"intent": "top_customers", "params": {"question": question}}
     if re.search(r"sản phẩm gì nhiều", q):
         return {"intent": "top_products", "params": {"question": question}}
+    if re.search(r"(cái gì|loại gì|mặt hàng gì|loại nào|cái nào).*?(hư|lỗi|gửi).*?(nhiều|nhất)?", q):
+        return {"intent": "top_products", "params": {"question": question}}
     if "sản phẩm" in q and ("lỗi nhiều" in q or "gửi nhiều" in q or "nhiều nhất" in q):
-        return {"intent": "top_product", "params": {"question": question}}
+        return {"intent": "top_products", "params": {"question": question}}
     if re.search(r"gửi gì nhiều", q):
         customer = extract_customer_from_question(question)
         return {"intent": "top_products_by_customer", "params": {"question": question, "customer": customer}}
@@ -67,24 +75,6 @@ def filter_by_time(df, question):
         df_filtered = df_filtered[df_filtered["quy"] == quarter]
     return df_filtered
 
-def handle_top_customer(df, question):
-    df_filtered = filter_by_time(df, question)
-    for col in ["ten_khach_hang", "khach_hang"]:
-        if col in df_filtered.columns:
-            top = df_filtered[col].value_counts().idxmax()
-            count = df_filtered[col].value_counts().max()
-            return df_filtered[df_filtered[col] == top], f"Khách hàng gửi nhiều nhất là **{top}** với tổng cộng {count} lượt gửi."
-    return df_filtered, "Không tìm thấy dữ liệu khách hàng trong bảng."
-
-def handle_top_product(df, question):
-    df_filtered = filter_by_time(df, question)
-    for col in ["san_pham", "model", "ten_san_pham"]:
-        if col in df_filtered.columns:
-            top = df_filtered[col].value_counts().idxmax()
-            count = df_filtered[col].value_counts().max()
-            return df_filtered[df_filtered[col] == top], f"Sản phẩm lỗi nhiều nhất là **{top}** với tổng cộng {count} lượt gửi."
-    return df_filtered, "Không tìm thấy dữ liệu sản phẩm trong bảng."
-
 def handle_top_products(df, params):
     question = params.get("question", "")
     df_filtered = filter_by_time(df, question)
@@ -98,42 +88,6 @@ def handle_top_products(df, params):
             return df_filtered, text.strip()
     return df_filtered, "Không tìm thấy dữ liệu sản phẩm."
 
-def handle_top_products_by_customer(df, params):
-    customer = params.get("customer")
-    question = params.get("question", "")
-    df_filtered = filter_by_time(df, question)
-    for col in ["ten_khach_hang", "khach_hang"]:
-        if col in df_filtered.columns:
-            df_filtered = df_filtered[df_filtered[col].str.contains(customer, case=False, na=False)]
-            break
-    for col in ["san_pham", "model", "ten_san_pham"]:
-        if col in df_filtered.columns:
-            top_df = df_filtered[col].value_counts().head(5).reset_index()
-            top_df.columns = ["san_pham", "so_luong"]
-            text = f"Top 5 sản phẩm khách hàng **{customer}** gửi nhiều nhất:\n"
-            for i, row in top_df.iterrows():
-                text += f"{i+1}. {row['san_pham']}: {row['so_luong']} lượt gửi\n"
-            return df_filtered, text.strip()
-    return df_filtered, "Không tìm thấy dữ liệu sản phẩm."
-
-def handle_top_customers_by_product(df, params):
-    product = params.get("product")
-    question = params.get("question", "")
-    df_filtered = filter_by_time(df, question)
-    for col in ["san_pham", "model", "ten_san_pham"]:
-        if col in df_filtered.columns:
-            df_filtered = df_filtered[df_filtered[col].str.contains(product, case=False, na=False)]
-            break
-    for col in ["ten_khach_hang", "khach_hang"]:
-        if col in df_filtered.columns:
-            top_df = df_filtered[col].value_counts().head(5).reset_index()
-            top_df.columns = ["khach_hang", "so_luong"]
-            text = f"Top 5 khách hàng gửi sản phẩm **{product}** nhiều nhất:\n"
-            for i, row in top_df.iterrows():
-                text += f"{i+1}. {row['khach_hang']}: {row['so_luong']} lượt gửi\n"
-            return df_filtered, text.strip()
-    return df_filtered, f"Không tìm thấy dữ liệu khách hàng gửi sản phẩm {product}."
-
 def handle_top_ktv(df, question):
     df_filtered = filter_by_time(df, question)
     for col in ["ktv", "ten_ky_thuat_vien"]:
@@ -142,39 +96,6 @@ def handle_top_ktv(df, question):
             count = df_filtered[col].value_counts().max()
             return df_filtered[df_filtered[col] == top], f"Kỹ thuật viên xử lý nhiều nhất là **{top}** với tổng cộng {count} lượt xử lý."
     return df_filtered, "Không tìm thấy dữ liệu kỹ thuật viên trong bảng."
-
-def handle_intent(question, df):
-    intent_info = recognize_intent(question)
-    intent = intent_info["intent"]
-    params = intent_info.get("params", {})
-
-    if intent == "top_customer":
-        return handle_top_customer(df, question)
-    elif intent == "top_product":
-        return handle_top_product(df, params.get("question", question))
-    elif intent == "top_products":
-        return handle_top_products(df, params)
-    elif intent == "top_products_by_customer":
-        return handle_top_products_by_customer(df, params)
-    elif intent == "top_customers_by_product":
-        return handle_top_customers_by_product(df, params)
-    elif intent == "top_ktv":
-        return handle_top_ktv(df, question)
-    elif intent == "count_product":
-        result = handle_count_product(df, params)
-        month = result.get("month")
-        year = result.get("year")
-        total = result.get("total")
-        if month and year and total is not None:
-            return df[df["thang"] == month], f"Trong tháng {month} năm {year}, đã có tổng cộng {total} sản phẩm được nhận bảo hành."
-        elif year and total is not None:
-            return df[df["nam"] == year], f"Trong năm {year}, đã có tổng cộng {total} sản phẩm được nhận bảo hành."
-        else:
-            return df, f"Đã có tổng cộng {total} sản phẩm được nhận bảo hành."
-    elif intent == "count_product_by_customer":
-        return handle_count_product_by_customer(df, params)
-    else:
-        return df, "Không xác định được ý định từ câu hỏi."
 
 def handle_count_product(df, params):
     question = params.get("question", "")
@@ -201,3 +122,68 @@ def handle_count_product_by_customer(df, params):
             break
     total = len(df_filtered)
     return df_filtered, f"Khách hàng **{customer}** đã gửi tổng cộng {total} sản phẩm theo yêu cầu lọc thời gian."
+
+def handle_top_customers(df, params):
+    question = params.get("question", "")
+    df_filtered = filter_by_time(df, question)
+    for col in ["ten_khach_hang", "khach_hang"]:
+        if col in df_filtered.columns:
+            top_df = df_filtered[col].value_counts().head(5).reset_index()
+            top_df.columns = ["khach_hang", "so_luong"]
+            text = "Top 5 khách hàng gửi nhiều nhất:\n"
+            for i, row in top_df.iterrows():
+                text += f"{i+1}. {row['khach_hang']}: {row['so_luong']} lượt gửi\n"
+            return df_filtered, text.strip()
+    return df_filtered, "Không tìm thấy dữ liệu khách hàng."
+    
+def handle_top_products_by_customer(df, params):
+    customer = params.get("customer")
+    question = params.get("question", "")
+    df_filtered = filter_by_time(df, question)
+
+    for col in ["ten_khach_hang", "khach_hang"]:
+        if col in df_filtered.columns:
+            df_filtered = df_filtered[df_filtered[col].str.contains(customer, case=False, na=False)]
+            break
+
+    for col in ["san_pham", "model", "ten_san_pham"]:
+        if col in df_filtered.columns:
+            top_df = df_filtered[col].value_counts().head(5).reset_index()
+            top_df.columns = ["san_pham", "so_luong"]
+            text = f"Top 5 sản phẩm khách hàng **{customer}** gửi nhiều nhất:\n"
+            for i, row in top_df.iterrows():
+                text += f"{i+1}. {row['san_pham']}: {row['so_luong']} lượt gửi\n"
+            return df_filtered, text.strip()
+
+    return df_filtered, "Không tìm thấy dữ liệu sản phẩm từ khách hàng này."
+ 
+def handle_intent(question, df):
+    intent_info = recognize_intent(question)
+    intent = intent_info["intent"]
+    params = intent_info.get("params", {})
+
+    if intent == "top_customers":
+        return handle_top_customers(df, params)
+    elif intent in ["top_product", "top_products"]:
+        return handle_top_products(df, params)
+    elif intent == "top_products_by_customer":
+        return handle_top_products_by_customer(df, params)
+    elif intent == "top_customers_by_product":
+        return handle_top_customers_by_product(df, params)
+    elif intent == "top_ktv":
+        return handle_top_ktv(df, question)
+    elif intent == "count_product":
+        result = handle_count_product(df, params)
+        month = result.get("month")
+        year = result.get("year")
+        total = result.get("total")
+        if month and year and total is not None:
+            return df[df["thang"] == month], f"Trong tháng {month} năm {year}, đã có tổng cộng {total} sản phẩm được nhận bảo hành."
+        elif year and total is not None:
+            return df[df["nam"] == year], f"Trong năm {year}, đã có tổng cộng {total} sản phẩm được nhận bảo hành."
+        else:
+            return df, f"Đã có tổng cộng {total} sản phẩm được nhận bảo hành."
+    elif intent == "count_product_by_customer":
+        return handle_count_product_by_customer(df, params)
+    else:
+        return df, "Không xác định được ý định từ câu hỏi."
