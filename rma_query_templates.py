@@ -33,14 +33,14 @@ def query_3_unrepaired_products(df):
     df3 = df[df[ok_col] != 1]
     return "Danh sách sản phẩm chưa sửa xong", df3[[date_col, customer_col, product_col, ok_col]]
 
-def query_4_top_customers(df, top_n=5):
+def query_4_top_customers(df, top_n=10):
     customer_col = find_col(df.columns, "khách hàng")
     if not customer_col:
         return "Không có cột 'Khách hàng'", pd.DataFrame()
     top_kh = df[customer_col].value_counts().head(top_n)
     return f"Top {top_n} khách hàng gửi nhiều sản phẩm nhất", pd.DataFrame({"Khách hàng": top_kh.index, "Số lượng": top_kh.values})
 
-def query_5_top_products_by_customer(df, customer_name, top_n=5):
+def query_5_top_products_by_customer(df, customer_name, top_n=30):
     customer_col = find_col(df.columns, "khách hàng")
     product_col = find_col(df.columns, "sản phẩm")
     if not customer_col or not product_col:
@@ -61,7 +61,7 @@ def query_6_total_by_customer_and_time(df, customer_name, group_by):
     result = df_filtered.groupby(group_by).size().reset_index(name="Số lượng")
     return f"Tổng sản phẩm khách hàng {customer_name} gửi theo {group_by.lower()}", result
 
-def query_7_top_products(df, top_n=5):
+def query_7_top_products(df, top_n=10):
     product_col = find_col(df.columns, "sản phẩm")
     if product_col is None:
         return "Không tìm thấy cột sản phẩm!", pd.DataFrame()
@@ -157,7 +157,7 @@ def query_15_rejected_products_by_time(df):
     df15 = df[df[tcbh_col] == 1]
     return "Sản phẩm bị từ chối bảo hành", df15[[product_col, customer_col, "Tháng", "Năm"]]
 
-def query_16_top_customers_by_product(df, product_name, top_n=3):
+def query_16_top_customers_by_product(df, product_name, top_n=10):
     product_col = find_col(df.columns, "sản phẩm")
     customer_col = find_col(df.columns, "khách hàng")
     if not all([product_col, customer_col]):

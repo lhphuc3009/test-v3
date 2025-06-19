@@ -1,5 +1,6 @@
 import re
 import pandas as pd
+from rma_utils import render_result_table
 
 def normalize_text(text):
     text = text.lower()
@@ -80,13 +81,10 @@ def handle_top_products(df, params):
     df_filtered = filter_by_time(df, question)
     for col in ["san_pham", "model", "ten_san_pham"]:
         if col in df_filtered.columns:
-            top_df = df_filtered[col].value_counts().head(5).reset_index()
+            top_df = df_filtered[col].value_counts().head(10).reset_index()
             top_df.columns = ["san_pham", "so_luong"]
-            text = "Top 5 sản phẩm được gửi nhiều nhất:\n"
-            for i, row in top_df.iterrows():
-                text += f"{i+1}. {row['san_pham']}: {row['so_luong']} lượt gửi\n"
-            return df_filtered, text.strip()
-    return df_filtered, "Không tìm thấy dữ liệu sản phẩm."
+    result_list = list(top_df.itertuples(index=False, name=None))
+    return df_filtered, render_result_table(result_list)
 
 def handle_top_ktv(df, question):
     df_filtered = filter_by_time(df, question)
@@ -128,13 +126,10 @@ def handle_top_customers(df, params):
     df_filtered = filter_by_time(df, question)
     for col in ["ten_khach_hang", "khach_hang"]:
         if col in df_filtered.columns:
-            top_df = df_filtered[col].value_counts().head(5).reset_index()
+            top_df = df_filtered[col].value_counts().head(10).reset_index()
             top_df.columns = ["khach_hang", "so_luong"]
-            text = "Top 5 khách hàng gửi nhiều nhất:\n"
-            for i, row in top_df.iterrows():
-                text += f"{i+1}. {row['khach_hang']}: {row['so_luong']} lượt gửi\n"
-            return df_filtered, text.strip()
-    return df_filtered, "Không tìm thấy dữ liệu khách hàng."
+    result_list = list(top_df.itertuples(index=False, name=None))
+    return df_filtered, render_result_table(result_list)
     
 def handle_top_products_by_customer(df, params):
     customer = params.get("customer")
@@ -148,14 +143,10 @@ def handle_top_products_by_customer(df, params):
 
     for col in ["san_pham", "model", "ten_san_pham"]:
         if col in df_filtered.columns:
-            top_df = df_filtered[col].value_counts().head(5).reset_index()
+            top_df = df_filtered[col].value_counts().head(10).reset_index()
             top_df.columns = ["san_pham", "so_luong"]
-            text = f"Top 5 sản phẩm khách hàng **{customer}** gửi nhiều nhất:\n"
-            for i, row in top_df.iterrows():
-                text += f"{i+1}. {row['san_pham']}: {row['so_luong']} lượt gửi\n"
-            return df_filtered, text.strip()
-
-    return df_filtered, "Không tìm thấy dữ liệu sản phẩm từ khách hàng này."
+    result_list = list(top_df.itertuples(index=False, name=None))
+    return df_filtered, render_result_table(result_list)
  
 def handle_intent(question, df):
     intent_info = recognize_intent(question)

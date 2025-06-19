@@ -9,6 +9,7 @@ from rma_ai import query_openai
 from rma_ai import chuan_hoa_ten_cot
 from rma_utils import bo_loc_da_nang, ensure_time_columns, find_col
 import io
+import time
 def export_excel_button(df, filename="bao_cao_rma.xlsx", label="📥 Tải file Excel"):
     if df.empty:
         return
@@ -132,25 +133,55 @@ with tab1:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-# === TAB 2: Hỏi AI ===
+# === TAB 2: Trợ lý AI ===
 with tab2:
     st.header("🤖 Trợ lý AI – Hỏi đáp theo dữ liệu")
-    question = st.text_area("Nhập câu hỏi tự nhiên (tiếng Việt):")
+    question = st.text_area("✍️ Nhập câu hỏi:")
 
-    max_rows = st.slider("Giới hạn số dòng gửi AI", 50, 500, 200)
+    # 👉 Sidebar: slider trong expander
+    with st.sidebar:
+        with st.expander("⚙️ Tuỳ chọn gửi AI", expanded=False):
+            max_rows = st.slider("📌 Giới hạn số dòng gửi AI", 50, 1000, 200)
+
+    # 👉 Lấy dữ liệu giới hạn
     df_ai = data_filtered.tail(max_rows)
 
     if st.button("💬 Gửi câu hỏi"):
-        csv_data = df_ai.to_csv(index=False)
-        api_key = os.getenv("OPENAI_API_KEY")
-        ai_response, prompt_used = query_openai(
-            user_question=question,
-            df_summary=df_ai,
-            df_raw=df_raw,
-            api_key=api_key
-        )
-        st.markdown("### 📌 Kết quả:")
-        st.write(ai_response)
+        if question.strip() == "":
+            st.warning("❗ Vui lòng nhập câu hỏi.")
+        else:
+            with st.spinner("⏳ Đang truy vấn AI, vui lòng chờ..."):
+
+                # 🔁 Tạo progress bar có thể ẩn
+                progress_placeholder = st.empty()
+                progress_bar = progress_placeholder.progress(0)
+
+                for percent_complete in range(100):
+                    time.sleep(0.01)
+                    progress_bar.progress(percent_complete + 1)
+
+                progress_placeholder.empty()  # ✅ Ẩn thanh sau khi xong
+
+                # 🧠 Gọi hàm AI
+                csv_data = df_ai.to_csv(index=False)
+                api_key = os.getenv("OPENAI_API_KEY")
+
+                ai_response, prompt_used = query_openai(
+                    user_question=question,
+                    df_summary=df_ai,
+                    df_raw=df_raw,
+                    api_key=api_key
+                )
+
+            # ✅ Hiện thông báo thành công 1 giây
+            success_box = st.empty()
+            success_box.success("✅ Đã xử lý xong câu hỏi.")
+            time.sleep(1)
+            success_box.empty()
+
+            # 📌 Kết quả
+            st.markdown("### 📌 Kết quả:")
+            st.markdown(ai_response, unsafe_allow_html=True)
 
 # === TAB 3: Truy vấn thống kê nhanh ===
 with tab3:
@@ -184,71 +215,136 @@ with tab3:
         "Tổng số sản phẩm tiếp nhận theo tháng/năm/quý",
         "Tỷ lệ sửa chữa thành công theo tháng/năm/quý",
         "Danh sách sản phẩm chưa sửa xong",
-        "Top 5 khách hàng gửi nhiều nhất",
-        "Top 5 sản phẩm bảo hành nhiều nhất",
+        "Top 10 khách hàng gửi nhiều nhất",
+        "Top 10 sản phẩm bảo hành nhiều nhất",
         "Top lỗi phổ biến theo nhóm hàng",
         "Thời gian xử lý trung bình",
         "Top sản phẩm gửi nhiều trong nhóm đã chọn",
         "Thời gian xử lý trung bình theo khách hàng",
         "Serial bị gửi nhiều lần",
-        "Hiệu suất sửa chữa theo kỹ thuật viên"
+        "Hiệu suất sửa chữa theo kỹ thuật viên",
+        "Top khách hàng gửi nhiều nhất theo sản phẩm",
+        "Top sản phẩm gửi nhiều nhất theo khách hàng"
     ]
 
     selected = st.selectbox("Chọn loại thống kê:", options)
 
     if selected == options[0]:
         group_by = st.selectbox("Nhóm theo:", ["Năm", "Tháng", "Quý"])
-        title, df_out = rma_query_templates.query_1_total_by_group(data, group_by)
-        st.subheader(title)
-        st.dataframe(df_out)
-        export_excel_button(df_out, filename="tong_so_tiep_nhan.xlsx")
+
+        if group_by:
+            with st.spinner("🔄 Đang truy vấn dữ liệu..."):
+                time.sleep(1)
+                title, df_out = rma_query_templates.query_1_total_by_group(data, group_by)
+
+            if not df_out.empty:
+                st.toast("✅ Đã xử lý xong truy vấn!", icon="🎉")
+                st.subheader(title)
+                st.dataframe(df_out)
+                export_excel_button(df_out, filename="tong_so_tiep_nhan.xlsx")
+            else:
+                st.warning("⚠️ Không tìm thấy dữ liệu phù hợp.")
 
     elif selected == options[1]:
         group_by = st.selectbox("Nhóm theo:", ["Năm", "Tháng", "Quý"])
-        title, df_out = rma_query_templates.query_2_success_rate_by_group(data, group_by)
-        st.subheader(title)
-        st.dataframe(df_out)
-        export_excel_button(df_out, filename="ti_le_sua_chua.xlsx")
+
+        if group_by:
+            with st.spinner("🔄 Đang truy vấn dữ liệu..."):
+                time.sleep(1)
+                title, df_out = rma_query_templates.query_2_success_rate_by_group(data, group_by)
+
+            if not df_out.empty:
+                st.toast("✅ Đã xử lý xong truy vấn!", icon="🎉")
+                st.subheader(title)
+                st.dataframe(df_out)
+                export_excel_button(df_out, filename="ti_le_sua_chua.xlsx")
+            else:
+                st.warning("⚠️ Không tìm thấy dữ liệu phù hợp.")
 
     elif selected == options[2]:
-        title, df_out = rma_query_templates.query_3_unrepaired_products(data)
-        st.subheader(title)
-        st.dataframe(df_out)
-        export_excel_button(df_out, filename="chua_sua_xong.xlsx")
+        with st.spinner("🔄 Đang truy vấn dữ liệu..."):
+            time.sleep(1)
+            title, df_out = rma_query_templates.query_3_unrepaired_products(data)
+
+        if not df_out.empty:
+            st.toast("✅ Đã xử lý xong truy vấn!", icon="🎉")
+            st.subheader(title)
+            st.dataframe(df_out)
+            export_excel_button(df_out, filename="chua_sua_xong.xlsx")
+        else:
+            st.warning("⚠️ Không tìm thấy dữ liệu phù hợp.")
 
     elif selected == options[3]:
-        title, df_out = rma_query_templates.query_4_top_customers(data)
-        st.subheader(title)
-        st.dataframe(df_out)
-        export_excel_button(df_out, filename="top_khach_hang.xlsx")
+        with st.spinner("🔄 Đang truy vấn dữ liệu..."):
+            time.sleep(1)
+            title, df_out = rma_query_templates.query_4_top_customers(data)
+
+        if not df_out.empty:
+            st.toast("✅ Đã xử lý xong truy vấn!", icon="🎉")
+            st.subheader(title)
+            st.dataframe(df_out)
+            export_excel_button(df_out, filename="top_khach_hang.xlsx")
+        else:
+            st.warning("⚠️ Không tìm thấy dữ liệu phù hợp.")
+
 
     elif selected == options[4]:
-        title, df_out = rma_query_templates.query_7_top_products(data)
-        st.subheader(title)
-        st.dataframe(df_out)
-        export_excel_button(df_out, filename="top_san_pham.xlsx")
+        with st.spinner("🔄 Đang truy vấn dữ liệu..."):
+            time.sleep(1)
+            title, df_out = rma_query_templates.query_7_top_products(data)
+
+        if not df_out.empty:
+            st.toast("✅ Đã xử lý xong truy vấn!", icon="🎉")
+            st.subheader(title)
+            st.dataframe(df_out)
+            export_excel_button(df_out, filename="top_san_pham.xlsx")
+        else:
+            st.warning("⚠️ Không tìm thấy dữ liệu phù hợp.")
 
     elif selected == options[5]:
-        title, df_out = rma_query_templates.query_top_errors(data)
-        st.subheader(title)
-        fig = px.bar(df_out, x="Lỗi", y="Số lần gặp", title="Biểu đồ lỗi kỹ thuật phổ biến",
-                     text_auto=True, template="plotly_dark")
-        fig.update_layout(xaxis_tickangle=-45, height=500, margin=dict(l=30, r=30, t=60, b=150))
-        st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(df_out)
-        export_excel_button(df_out, filename="top_loi_pop.xlsx")
+        with st.spinner("🔄 Đang truy vấn dữ liệu..."):
+            time.sleep(1)
+            title, df_out = rma_query_templates.query_top_errors(data)
+
+        if not df_out.empty:
+            st.toast("✅ Đã xử lý xong truy vấn!", icon="🎉")
+            st.subheader(title)
+            fig = px.bar(df_out, x="Lỗi", y="Số lần gặp", title="Biểu đồ lỗi kỹ thuật phổ biến",
+                         text_auto=True, template="plotly_dark")
+            fig.update_layout(xaxis_tickangle=-45, height=500, margin=dict(l=30, r=30, t=60, b=150))
+            st.plotly_chart(fig, use_container_width=True)
+            st.dataframe(df_out)
+            export_excel_button(df_out, filename="top_loi_pop.xlsx")
+        else:
+            st.warning("⚠️ Không tìm thấy dữ liệu phù hợp.")
 
     elif selected == options[6]:
-        title, df_out = rma_query_templates.query_avg_processing_time(data)
-        st.subheader(title)
-        st.dataframe(df_out)
-        export_excel_button(df_out, filename="thoi_gian_xu_ly_tb.xlsx")
+        with st.spinner("🔄 Đang truy vấn dữ liệu..."):
+            time.sleep(1)
+            title, df_out = rma_query_templates.query_avg_processing_time(data)
+
+        if not df_out.empty:
+            st.toast("✅ Đã xử lý xong truy vấn!", icon="🎉")
+            st.subheader(title)
+            st.dataframe(df_out)
+            export_excel_button(df_out, filename="thoi_gian_xu_ly_tb.xlsx")
+        else:
+            st.warning("⚠️ Không tìm thấy dữ liệu phù hợp.")
+
 
     elif selected == options[7]:
-        title, df_out = rma_query_templates.query_top_products_in_group(data)
-        st.subheader(title)
-        st.dataframe(df_out)
-        export_excel_button(df_out, filename="top_san_pham_nhom.xlsx")
+        with st.spinner("🔄 Đang truy vấn dữ liệu..."):
+            time.sleep(1)
+            title, df_out = rma_query_templates.query_top_products_in_group(data)
+
+        if not df_out.empty:
+            st.toast("✅ Đã xử lý xong truy vấn!", icon="🎉")
+            st.subheader(title)
+            st.dataframe(df_out)
+            export_excel_button(df_out, filename="top_san_pham_nhom.xlsx")
+        else:
+            st.warning("⚠️ Không tìm thấy dữ liệu phù hợp.")
+
 
     elif selected == options[8]:
         col_khach = find_col(data.columns, "tên khách hàng")
@@ -257,19 +353,86 @@ with tab3:
             selected_khach = st.selectbox("🔍 Chọn khách hàng cần xem:", unique_khach)
         else:
             selected_khach = None
-        title, df_out = rma_query_templates.query_avg_time_by_customer(data, selected_khach)
-        st.subheader(title)
-        st.dataframe(df_out)
-        export_excel_button(df_out, filename="tg_xu_ly_theo_khach.xlsx")
+
+        if selected_khach:
+            with st.spinner("🔄 Đang truy vấn dữ liệu..."):
+                time.sleep(1)
+                title, df_out = rma_query_templates.query_avg_time_by_customer(data, selected_khach)
+
+            if not df_out.empty:
+                st.toast("✅ Đã xử lý xong truy vấn!", icon="🎉")
+                st.subheader(title)
+                st.dataframe(df_out)
+                export_excel_button(df_out, filename="tg_xu_ly_theo_khach.xlsx")
+            else:
+                st.warning("⚠️ Không tìm thấy dữ liệu phù hợp.")
 
     elif selected == options[9]:
-        title, df_out = rma_query_templates.query_serial_lap_lai(data)
-        st.subheader(title)
-        st.dataframe(df_out)
-        export_excel_button(df_out, filename="serial_lap_lai.xlsx")
+        with st.spinner("🔄 Đang truy vấn dữ liệu..."):
+            time.sleep(1)
+            title, df_out = rma_query_templates.query_serial_lap_lai(data)
+
+        if not df_out.empty:
+            st.toast("✅ Đã xử lý xong truy vấn!", icon="🎉")
+            st.subheader(title)
+            st.dataframe(df_out)
+            export_excel_button(df_out, filename="serial_lap_lai.xlsx")
+        else:
+            st.warning("⚠️ Không tìm thấy dữ liệu phù hợp.")
 
     elif selected == options[10]:
-        title, df_out = rma_query_templates.query_21_technician_status_summary(data)
-        st.subheader(title)
-        st.dataframe(df_out)
-        export_excel_button(df_out, filename="hieu_suat_ktv.xlsx")
+        with st.spinner("🔄 Đang truy vấn dữ liệu..."):
+            time.sleep(1)
+            title, df_out = rma_query_templates.query_21_technician_status_summary(data)
+
+        if not df_out.empty:
+            st.toast("✅ Đã xử lý xong truy vấn!", icon="🎉")
+            st.subheader(title)
+            st.dataframe(df_out)
+            export_excel_button(df_out, filename="hieu_suat_ktv.xlsx")
+        else:
+            st.warning("⚠️ Không tìm thấy dữ liệu phù hợp.")
+
+    elif selected == options[11]:
+        col_san_pham = find_col(data.columns, "sản phẩm")
+        if col_san_pham:
+            unique_products = data[col_san_pham].dropna().unique().tolist()
+            selected_product = st.selectbox("📦 Chọn sản phẩm", sorted(unique_products))
+
+            if selected_product:
+                # 🌟 Hiệu ứng loading
+                with st.spinner("🔍 Đang truy vấn dữ liệu, vui lòng chờ..."):
+                    time.sleep(1)  # giả lập độ trễ
+                    title, df_out = rma_query_templates.query_16_top_customers_by_product(data, selected_product)
+
+                # ✅ Thông báo hoàn tất (hiện tạm)
+                st.toast("✅ Đã xử lý xong truy vấn.", icon="🎉")
+
+                # 📊 Hiển thị kết quả
+                st.subheader(title)
+                st.dataframe(df_out)
+                export_excel_button(df_out, filename=f"top_khach_{selected_product}.xlsx")
+        else:
+            st.error("❌ Không tìm thấy cột tên sản phẩm trong dữ liệu.")
+
+    elif selected == options[12]:
+        col_khach = find_col(data.columns, "tên khách hàng")
+        col_san_pham = find_col(data.columns, "sản phẩm")
+
+        if col_khach and col_san_pham:
+            unique_khach = data[col_khach].dropna().unique().tolist()
+            selected_khach = st.selectbox("👤 Chọn khách hàng", sorted(unique_khach))
+
+            if selected_khach:
+                with st.spinner("🔄 Đang truy vấn dữ liệu, vui lòng chờ..."):
+                    time.sleep(1)
+                    title, df_out = rma_query_templates.query_5_top_products_by_customer(
+                        data, selected_khach, top_n=30
+                    )
+
+                st.toast("✅ Đã xử lý xong truy vấn.", icon="📊")
+                st.subheader(title)
+                st.dataframe(df_out)
+                export_excel_button(df_out, filename=f"top_san_pham_{selected_khach}.xlsx")
+        else:
+            st.error("❌ Không tìm thấy cột 'tên khách hàng' hoặc 'sản phẩm' trong dữ liệu.")

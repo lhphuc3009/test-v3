@@ -1,4 +1,3 @@
-
 import pandas as pd
 
 COLUMN_MAPPING = {
@@ -187,7 +186,7 @@ import streamlit as st
 def bo_loc_da_nang(df):
     df_filtered = df.copy()
     
-    with st.sidebar.expander("🧰 Bộ lọc nâng cao", expanded=True):
+    with st.sidebar.expander("📕 Bộ lọc nâng cao", expanded=False):
         col1, col2 = st.columns(2)
         years = sorted(df["Năm"].dropna().unique())
         months = sorted(df["Tháng"].dropna().unique())
@@ -215,3 +214,14 @@ def bo_loc_da_nang(df):
 
     return df_filtered
 
+
+def render_result_table(results):
+    """
+    Nhận vào danh sách [("Tên sản phẩm", lượt gửi), ...] và trả HTML bảng
+    """
+    html = "<table border='1' cellpadding='6' cellspacing='0' style='width:100%; border-collapse: collapse; background-color: #1e1e1e; color: white;'>"
+    html += "<tr style='background-color: #333;'><th>STT</th><th>Sản phẩm</th><th>Lượt gửi</th></tr>"
+    for i, (product, count) in enumerate(results, 1):
+        html += f"<tr><td>{i}</td><td>{product}</td><td>{count}</td></tr>"
+    html += "</table>"
+    return html
